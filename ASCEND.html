@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCEND — Rank Progression System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@800;900&family=Barlow:wght@500;600;700&family=Bebas+Neue&family=Big+Shoulders+Display:wght@900&family=Black+Ops+One&family=JetBrains+Mono:wght@700;800&family=Rajdhani:wght@500;600&family=Saira+Condensed:wght@900&family=Share+Tech+Mono&family=Squada+One&family=Teko:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050507;
+    --bg2: #0a0a0f;
+    --bg3: #0f0f18;
+    --surface: #11111c;
+    --surface2: #181825;
+    --border: #1e1e2e;
+    --border2: #2a2a3e;
+    --gold: #d4af37;
+    --gold2: #f0d060;
+    --gold3: #8a6f1e;
+    --red: #e05050;
+    --green: #3ecf6a;
+    --blue: #4a9eff;
+    --purple: #9b59b6;
+    --text: #e8e8f0;
+    --text2: #9090b0;
+    --text3: #5a5a7a;
+    --accent: #d4af37;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Noise texture */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.4;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+  /* ===== HEADER ===== */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 16px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(5,5,7,0.95);
+    backdrop-filter: blur(12px);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Anton', sans-serif;
+    font-size: 28px;
+    letter-spacing: 8px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(212,175,55,0.4);
+  }
+
+  .logo span { color: var(--text3); font-size: 11px; display: block; letter-spacing: 5px; font-family: 'JetBrains Mono', monospace; margin-top: -2px; }
+
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    letter-spacing: 2px;
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* ===== HERO / RANK CARD ===== */
+  .hero {
+    padding: 40px 0 30px;
+  }
+
+  .rank-card {
+    background: linear-gradient(135deg, #0f0f1a 0%, #12121f 50%, #0a0a12 100%);
+    border: 1px solid var(--border2);
+    border-top: 2px solid var(--gold3);
+    border-radius: 4px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .rank-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .rank-card::after {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(212,175,55,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .rank-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 40px;
+    align-items: center;
+  }
+
+  /* Badge */
+  .badge-wrap {
+    position: relative;
+  }
+
+  .badge {
+    width: 140px;
+    height: 140px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .badge-svg {
+    position: absolute;
+    inset: 0;
+  }
+
+  .badge-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+  }
+
+  .badge-level {
+    font-family: 'Big Shoulders Display', cursive;
+    font-weight: 900;
+    font-size: 48px;
+    color: var(--gold);
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(212,175,55,0.6);
+  }
+
+  .badge-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  /* Rank info */
+  .rank-info {}
+
+  .rank-tier {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .rank-name {
+    font-family: 'Anton', sans-serif;
+    font-size: 58px;
+    color: var(--gold);
+    letter-spacing: 4px;
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(212,175,55,0.3), 3px 3px 0px rgba(0,0,0,0.9);
+    margin-bottom: 8px;
+  }
+
+  /* Per-tier font overrides */
+  .rank-name.tier-1  { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 72px; letter-spacing: 6px; }
+  .rank-name.tier-2  { font-family: 'Saira Condensed', sans-serif; font-weight: 900; font-size: 68px; letter-spacing: 5px; }
+  .rank-name.tier-3  { font-family: 'Anton', sans-serif; font-size: 60px; letter-spacing: 4px; }
+  .rank-name.tier-4  { font-family: 'Big Shoulders Display', cursive; font-weight: 900; font-size: 64px; letter-spacing: 4px; text-shadow: 0 0 24px rgba(212,175,55,0.5), 3px 3px 0 rgba(0,0,0,0.9); }
+  .rank-name.tier-5  { font-family: 'Squada One', cursive; font-size: 62px; letter-spacing: 5px; text-shadow: 0 0 32px rgba(212,175,55,0.6), 3px 3px 0 rgba(0,0,0,0.9); }
+  .rank-name.tier-6  { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 70px; letter-spacing: 4px; color: var(--gold2); text-shadow: 0 0 40px rgba(240,208,96,0.5), 4px 4px 0 rgba(0,0,0,0.9); }
+  .rank-name.tier-7  { font-family: 'Big Shoulders Display', cursive; font-weight: 900; font-size: 64px; letter-spacing: 3px; color: #c084fc; text-shadow: 0 0 24px rgba(192,132,252,0.6), 3px 3px 0 rgba(0,0,0,0.9); }
+  .rank-name.tier-8  { font-family: 'Saira Condensed', sans-serif; font-weight: 900; font-size: 68px; letter-spacing: 4px; color: #f87171; text-shadow: 0 0 24px rgba(248,113,113,0.7), 4px 4px 0 rgba(0,0,0,0.9); }
+  .rank-name.tier-9  { font-family: 'Anton', sans-serif; font-size: 64px; letter-spacing: 6px; color: var(--gold2); text-shadow: 0 0 12px #fff, 0 0 40px var(--gold), 0 0 90px var(--gold2), 4px 4px 0 rgba(0,0,0,0.9); animation: apex-glow 2s ease-in-out infinite; }
+
+  @keyframes apex-glow {
+    0%, 100% { text-shadow: 0 0 12px #fff, 0 0 40px var(--gold), 0 0 90px var(--gold2), 4px 4px 0 rgba(0,0,0,0.9); }
+    50% { text-shadow: 0 0 24px #fff, 0 0 60px var(--gold2), 0 0 130px var(--gold), 4px 4px 0 rgba(0,0,0,0.9); }
+  }
+
+  .rank-desc {
+    font-size: 15px;
+    color: var(--text2);
+    letter-spacing: 0.5px;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 500;
+    max-width: 400px;
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  /* XP Bar */
+  .xp-bar-wrap {
+    margin-top: 16px;
+  }
+
+  .xp-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .xp-bar-track {
+    height: 4px;
+    background: var(--border2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold3), var(--gold));
+    border-radius: 2px;
+    transition: width 1s ease;
+    box-shadow: 0 0 8px var(--gold3);
+  }
+
+  /* Countdown panel */
+  .countdown-panel {
+    text-align: right;
+  }
+
+  .countdown-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+  }
+
+  .countdown-digits {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .cd-unit {
+    text-align: center;
+    min-width: 52px;
+  }
+
+  .cd-num {
+    font-family: 'Big Shoulders Display', cursive;
+    font-weight: 900;
+    font-size: 42px;
+    color: var(--text);
+    line-height: 1;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    padding: 6px 10px;
+    border-radius: 3px;
+    display: block;
+    text-align: center;
+    transition: color 0.3s;
+  }
+
+  .cd-unit.critical .cd-num { color: var(--red); animation: flicker 1.5s infinite; }
+
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.6; }
+    94% { opacity: 1; }
+  }
+
+  .cd-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    margin-top: 4px;
+    display: block;
+  }
+
+  .mission-end {
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
+  .mission-end span { color: var(--gold); }
+
+  /* ===== DAILY CHECK-IN ===== */
+  .checkin-section {
+    margin: 24px 0;
+  }
+
+  .checkin-card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .checkin-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--gold);
+  }
+
+  .checkin-status {
+    flex: 1;
+  }
+
+  .checkin-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 26px;
+    letter-spacing: 4px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .checkin-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
+  .timer-until {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text2);
+    letter-spacing: 1px;
+  }
+
+  .timer-until span { color: var(--gold); }
+
+  .btn-group { display: flex; gap: 12px; }
+
+  .btn {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    letter-spacing: 4px;
+    font-size: 17px;
+    padding: 14px 32px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.05);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn:hover::after { opacity: 1; }
+
+  .btn-pass {
+    background: linear-gradient(135deg, #1a3a1a, #1f4a1f);
+    color: var(--green);
+    border: 1px solid rgba(62,207,106,0.3);
+    box-shadow: 0 0 16px rgba(62,207,106,0.1);
+  }
+
+  .btn-pass:hover {
+    border-color: var(--green);
+    box-shadow: 0 0 24px rgba(62,207,106,0.25);
+    transform: translateY(-1px);
+  }
+
+  .btn-fail {
+    background: linear-gradient(135deg, #2a1010, #3a1515);
+    color: var(--red);
+    border: 1px solid rgba(224,80,80,0.3);
+    box-shadow: 0 0 16px rgba(224,80,80,0.05);
+  }
+
+  .btn-fail:hover {
+    border-color: var(--red);
+    box-shadow: 0 0 24px rgba(224,80,80,0.2);
+    transform: translateY(-1px);
+  }
+
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  /* ===== STATS GRID ===== */
+  .stats-section {
+    margin: 24px 0;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 6px;
+    color: var(--text2);
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card:hover { border-color: var(--border2); }
+
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #d4af37), transparent);
+    opacity: 0.4;
+  }
+
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 36px;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: 2px;
+  }
+
+  .stat-value.gold { color: var(--gold); text-shadow: 0 0 16px rgba(212,175,55,0.3); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.blue { color: var(--blue); }
+
+  .stat-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* ===== PROGRESS / RANK PATH ===== */
+  .rank-path-section {
+    margin: 24px 0;
+  }
+
+  .rank-path {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+  }
+
+  .rank-node {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    position: relative;
+    padding: 4px;
+  }
+
+  .rank-node:hover { transform: scale(1.05); z-index: 10; }
+
+  .rank-node.passed {
+    background: rgba(212,175,55,0.08);
+    border-color: rgba(212,175,55,0.2);
+  }
+
+  .rank-node.current {
+    background: rgba(212,175,55,0.15);
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(212,175,55,0.2), inset 0 0 8px rgba(212,175,55,0.05);
+    animation: current-pulse 3s infinite;
+  }
+
+  @keyframes current-pulse {
+    0%, 100% { box-shadow: 0 0 16px rgba(212,175,55,0.2); }
+    50% { box-shadow: 0 0 28px rgba(212,175,55,0.35); }
+  }
+
+  .rank-node.future {
+    background: rgba(255,255,255,0.02);
+    border-color: var(--border);
+  }
+
+  .rank-node.locked {
+    background: rgba(0,0,0,0.2);
+    border-color: rgba(255,255,255,0.04);
+    opacity: 0.5;
+  }
+
+  .node-level {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 14px;
+    color: var(--text3);
+    line-height: 1;
+  }
+
+  .rank-node.passed .node-level { color: var(--gold); }
+  .rank-node.current .node-level { color: var(--gold2); font-size: 16px; }
+
+  .node-name {
+    font-family: 'Teko', sans-serif;
+    font-size: 8px;
+    color: var(--text3);
+    letter-spacing: 0.5px;
+    text-align: center;
+    margin-top: 2px;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  .rank-node.current .node-name { color: var(--gold); font-family: 'Black Ops One', cursive; font-size: 7px; }
+
+  .node-check {
+    position: absolute;
+    top: 2px; right: 3px;
+    font-size: 8px;
+    color: var(--green);
+  }
+
+  /* ===== DAILY HISTORY ===== */
+  .history-section {
+    margin: 24px 0;
+  }
+
+  .history-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .history-header {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    text-align: center;
+    padding-bottom: 6px;
+  }
+
+  .day-cell {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    position: relative;
+    cursor: default;
+    transition: all 0.2s;
+  }
+
+  .day-cell:hover { border-color: var(--border2); }
+  .day-cell.pass { background: rgba(62,207,106,0.08); border-color: rgba(62,207,106,0.25); color: var(--green); }
+  .day-cell.fail { background: rgba(224,80,80,0.08); border-color: rgba(224,80,80,0.25); color: var(--red); }
+  .day-cell.today { border-color: var(--gold); color: var(--gold); }
+  .day-cell.empty { opacity: 0.2; }
+
+  /* ===== MISSION BRIEFING ===== */
+  .briefing-section {
+    margin: 24px 0;
+  }
+
+  .briefing-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px 28px;
+  }
+
+  .briefing-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .briefing-item { }
+
+  .briefing-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+
+  .briefing-value {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    color: var(--text);
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  .briefing-value.highlight { color: var(--gold); }
+  .briefing-value.success { color: var(--green); }
+  .briefing-value.danger { color: var(--red); }
+
+  /* ===== SETTINGS ===== */
+  .settings-section {
+    margin: 24px 0;
+  }
+
+  .settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px 28px;
+  }
+
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .settings-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+
+  input[type="date"] {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    padding: 10px 14px;
+    border-radius: 3px;
+    outline: none;
+    letter-spacing: 2px;
+    cursor: pointer;
+  }
+
+  input[type="date"]:focus { border-color: var(--gold); }
+
+  .btn-sm {
+    font-family: 'Bebas Neue', cursive;
+    letter-spacing: 2px;
+    font-size: 13px;
+    padding: 10px 20px;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    background: var(--bg3);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-sm:hover { border-color: var(--gold3); color: var(--gold); }
+
+  .btn-sm.danger:hover { border-color: var(--red); color: var(--red); }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 16px 24px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--text);
+    z-index: 10000;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s;
+    max-width: 300px;
+  }
+
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.danger { border-color: var(--red); color: var(--red); }
+  .toast.gold { border-color: var(--gold); color: var(--gold); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-top: 2px solid var(--gold3);
+    border-radius: 4px;
+    padding: 40px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.3s;
+  }
+
+  .modal-overlay.show .modal { transform: scale(1); }
+
+  .modal-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .modal-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 32px;
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+
+  .modal-title.gold { color: var(--gold); }
+  .modal-title.red { color: var(--red); }
+  .modal-title.green { color: var(--green); }
+
+  .modal-text {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    color: var(--text2);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .modal-close {
+    font-family: 'Bebas Neue', cursive;
+    letter-spacing: 3px;
+    font-size: 15px;
+    padding: 12px 40px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .modal-close:hover { border-color: var(--gold3); color: var(--gold); }
+
+  /* ===== STREAK BAR ===== */
+  .streak-bar {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+  }
+
+  .streak-pip {
+    width: 10px; height: 10px;
+    border-radius: 1px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .streak-pip.pass { background: var(--green); }
+  .streak-pip.fail { background: var(--red); }
+  .streak-pip.current { background: var(--gold); animation: pip-pulse 2s infinite; }
+
+  @keyframes pip-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0;
+    margin-top: 40px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 3px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .rank-grid { grid-template-columns: 1fr; gap: 24px; }
+    .countdown-panel { text-align: left; }
+    .countdown-digits { justify-content: flex-start; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .rank-path { grid-template-columns: repeat(5, 1fr); }
+    .briefing-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 600px) {
+    .rank-card { padding: 24px 20px; }
+    .rank-name { font-size: 38px; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .history-grid { grid-template-columns: repeat(7, 1fr); }
+    .checkin-card { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* Rank color vars per tier */
+  .tier-basic { --accent: #888; }
+  .tier-soldier { --accent: #4a9eff; }
+  .tier-warrior { --accent: #9b59b6; }
+  .tier-elite { --accent: #d4af37; }
+  .tier-legend { --accent: #e05050; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <div class="logo">ASCEND <span>// RANK PROGRESSION SYSTEM</span></div>
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      <span id="live-clock">--:--:--</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="hero">
+    <div class="rank-card" id="rank-card">
+      <div class="rank-grid">
+
+        <div class="badge-wrap">
+          <div class="badge">
+            <svg class="badge-svg" viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="70,8 85,30 112,30 95,50 103,77 70,63 37,77 45,50 28,30 55,30" fill="rgba(212,175,55,0.06)" stroke="rgba(212,175,55,0.35)" stroke-width="1.5"/>
+              <polygon points="70,18 82,36 106,36 91,52 98,75 70,63 42,75 49,52 34,36 58,36" fill="rgba(212,175,55,0.04)" stroke="rgba(212,175,55,0.2)" stroke-width="1"/>
+              <circle cx="70" cy="100" r="28" fill="rgba(212,175,55,0.06)" stroke="rgba(212,175,55,0.3)" stroke-width="1.5"/>
+              <circle cx="70" cy="100" r="22" fill="rgba(0,0,0,0.3)" stroke="rgba(212,175,55,0.15)" stroke-width="1"/>
+            </svg>
+            <div class="badge-content">
+              <div class="badge-level" id="badge-level">11</div>
+              <div class="badge-label">RANK</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rank-info">
+          <div class="rank-tier" id="rank-tier">TIER III — WARRIOR CLASS</div>
+          <div class="rank-name" id="rank-name">CORPORAL</div>
+          <div class="rank-desc" id="rank-desc">You have proven your commitment. The battlefield respects those who endure. Every day counts.</div>
+          <div class="xp-bar-wrap">
+            <div class="xp-bar-labels">
+              <span id="xp-label-left">LVL 11</span>
+              <span id="xp-label-right">LVL 12 — 1 DAY AWAY</span>
+            </div>
+            <div class="xp-bar-track">
+              <div class="xp-bar-fill" id="xp-bar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="countdown-panel">
+          <div class="countdown-label">MISSION ENDS IN</div>
+          <div class="countdown-digits">
+            <div class="cd-unit" id="cd-days-unit">
+              <span class="cd-num" id="cd-days">---</span>
+              <span class="cd-label">DAYS</span>
+            </div>
+            <div class="cd-unit" id="cd-hrs-unit">
+              <span class="cd-num" id="cd-hrs">--</span>
+              <span class="cd-label">HRS</span>
+            </div>
+            <div class="cd-unit" id="cd-mins-unit">
+              <span class="cd-num" id="cd-mins">--</span>
+              <span class="cd-label">MIN</span>
+            </div>
+            <div class="cd-unit" id="cd-secs-unit">
+              <span class="cd-num" id="cd-secs">--</span>
+              <span class="cd-label">SEC</span>
+            </div>
+          </div>
+          <div class="mission-end">MISSION END: <span id="mission-end-date">DEC 31, 2026</span></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="checkin-section">
+    <div class="checkin-card" id="checkin-card">
+      <div class="checkin-status">
+        <div class="checkin-title" id="checkin-title">DAILY MISSION CHECK-IN</div>
+        <div class="checkin-sub" id="checkin-sub">TAP PASS IF YOU COMPLETED YOUR MISSION TODAY. FAILURE COSTS A RANK.</div>
+        <div class="timer-until" id="timer-until" style="margin-top:8px;display:none;"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-pass" id="btn-pass" onclick="doCheckin(true)">✦ PASS</button>
+        <button class="btn btn-fail" id="btn-fail" onclick="doCheckin(false)">✕ FAIL</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-section">
+    <div class="section-header">
+      <div class="section-title">STATISTICS</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">CURRENT LEVEL</div>
+        <div class="stat-value gold" id="stat-level">11</div>
+        <div class="stat-sub" id="stat-rank-short">CORPORAL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">DAYS PASSED</div>
+        <div class="stat-value green" id="stat-pass">0</div>
+        <div class="stat-sub">TOTAL WINS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">DAYS FAILED</div>
+        <div class="stat-value red" id="stat-fail">0</div>
+        <div class="stat-sub">TOTAL LOSSES</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">CURRENT STREAK</div>
+        <div class="stat-value blue" id="stat-streak">0</div>
+        <div class="stat-sub">CONSECUTIVE DAYS</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">WIN RATE</div>
+        <div class="stat-value gold" id="stat-winrate">—</div>
+        <div class="stat-sub">PASS %</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">BEST STREAK</div>
+        <div class="stat-value blue" id="stat-beststreak">0</div>
+        <div class="stat-sub">ALL TIME</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">DAYS REMAINING</div>
+        <div class="stat-value" id="stat-daysrem">—</div>
+        <div class="stat-sub">TO MISSION END</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">MAX POSSIBLE RANK</div>
+        <div class="stat-value gold" id="stat-maxrank">—</div>
+        <div class="stat-sub" id="stat-maxrank-name">—</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-section">
+    <div class="section-header">
+      <div class="section-title">LAST 30 DAYS</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="streak-bar" id="streak-bar"></div>
+  </section>
+
+  <section class="rank-path-section">
+    <div class="section-header">
+      <div class="section-title">RANK LADDER</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="rank-path" id="rank-path"></div>
+  </section>
+
+  <section class="briefing-section">
+    <div class="section-header">
+      <div class="section-title">MISSION BRIEFING</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="briefing-card">
+      <div class="briefing-grid">
+        <div class="briefing-item">
+          <div class="briefing-label">START DATE</div>
+          <div class="briefing-value highlight" id="brief-start">—</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">MISSION END DATE</div>
+          <div class="briefing-value highlight" id="brief-end">—</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">TOTAL MISSION DAYS</div>
+          <div class="briefing-value" id="brief-total">—</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">DAYS ELAPSED</div>
+          <div class="briefing-value" id="brief-elapsed">—</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">LAST CHECK-IN</div>
+          <div class="briefing-value success" id="brief-lastcheck">NEVER</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">NEXT CHECK-IN OPENS</div>
+          <div class="briefing-value" id="brief-nextcheck">—</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">MISSION STATUS</div>
+          <div class="briefing-value success" id="brief-status">ACTIVE</div>
+        </div>
+        <div class="briefing-item">
+          <div class="briefing-label">PROJECTED FINAL RANK</div>
+          <div class="briefing-value highlight" id="brief-projected">—</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-section">
+    <div class="section-header">
+      <div class="section-title">MISSION CONFIG</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <span class="settings-label">MISSION END DATE</span>
+        <input type="date" id="end-date-input">
+        <button class="btn-sm" onclick="setEndDate()">SET DATE</button>
+        <button class="btn-sm danger" onclick="confirmReset()">RESET ALL DATA</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">ASCEND // RANK PROGRESSION SYSTEM // LIVE // STAY DISCIPLINED</div>
+</footer>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <span class="modal-icon" id="modal-icon">🎖️</span>
+    <div class="modal-title" id="modal-title">RANK UP</div>
+    <div class="modal-text" id="modal-text">You have earned your next rank.</div>
+    <button class="modal-close" onclick="closeModal()">ACKNOWLEDGED</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// RANKS — Level 1–100
+// ============================================================
+const RANKS = [
+  // 1-10 (already passed)
+  { level: 1,  name: "INITIATE",        tier: "TIER I — RECRUIT CLASS",    desc: "You have taken your first step. The journey begins." },
+  { level: 2,  name: "CADET",           tier: "TIER I — RECRUIT CLASS",    desc: "Training has begun. Your body and mind are being forged." },
+  { level: 3,  name: "TRAINEE",         tier: "TIER I — RECRUIT CLASS",    desc: "Basic conditioning is underway. Push harder." },
+  { level: 4,  name: "SCOUT",           tier: "TIER I — RECRUIT CLASS",    desc: "Your eyes are open. Learn to read the terrain." },
+  { level: 5,  name: "FOOT SOLDIER",    tier: "TIER I — RECRUIT CLASS",    desc: "You march with the unit now. Discipline is your armor." },
+  { level: 6,  name: "PRIVATE",         tier: "TIER II — SOLDIER CLASS",   desc: "Enlisted and committed. The easy days are behind you." },
+  { level: 7,  name: "LANCE CORPORAL",  tier: "TIER II — SOLDIER CLASS",   desc: "Taking on small responsibilities. Leaders are watching." },
+  { level: 8,  name: "SPECIALIST",      tier: "TIER II — SOLDIER CLASS",   desc: "You have a role. Mastery of it is your duty." },
+  { level: 9,  name: "TROOPER",         tier: "TIER II — SOLDIER CLASS",   desc: "Consistent. Reliable. The backbone of any operation." },
+  { level: 10, name: "RIFLEMAN",        tier: "TIER II — SOLDIER CLASS",   desc: "Fully armed and dangerous. Your training is showing." },
+  // 11-20 (current zone)
+  { level: 11, name: "CORPORAL",        tier: "TIER III — WARRIOR CLASS",  desc: "You have proven your commitment. Every day counts." },
+  { level: 12, name: "SERGEANT",        tier: "TIER III — WARRIOR CLASS",  desc: "Leadership begins here. Others look to you now." },
+  { level: 13, name: "STAFF SERGEANT",  tier: "TIER III — WARRIOR CLASS",  desc: "Battle-hardened. Your presence commands respect." },
+  { level: 14, name: "GUNNER",          tier: "TIER III — WARRIOR CLASS",  desc: "Precision and force. You hit what you aim at." },
+  { level: 15, name: "WARRIOR",         tier: "TIER III — WARRIOR CLASS",  desc: "Beyond soldier, you fight with purpose and conviction." },
+  { level: 16, name: "VANGUARD",        tier: "TIER III — WARRIOR CLASS",  desc: "You lead the charge. First in, last out." },
+  { level: 17, name: "RECON",           tier: "TIER III — WARRIOR CLASS",  desc: "Operating ahead of the line. Unseen but decisive." },
+  { level: 18, name: "RANGER",          tier: "TIER III — WARRIOR CLASS",  desc: "All terrain. All weather. All conditions." },
+  { level: 19, name: "GUARDIAN",        tier: "TIER III — WARRIOR CLASS",  desc: "You protect what you've built. Nothing is surrendered." },
+  { level: 20, name: "SENTINEL",        tier: "TIER III — WARRIOR CLASS",  desc: "Always watching. Never off duty. Never complacent." },
+  // 21-35 (Elite)
+  { level: 21, name: "LIEUTENANT",      tier: "TIER IV — ELITE CLASS",     desc: "Tactical command. You turn strategy into execution." },
+  { level: 22, name: "CAPTAIN",         tier: "TIER IV — ELITE CLASS",     desc: "You own your mission entirely. No excuses, only results." },
+  { level: 23, name: "ENFORCER",        tier: "TIER IV — ELITE CLASS",     desc: "Your will is law. Discipline radiates outward." },
+  { level: 24, name: "STRIKER",         tier: "TIER IV — ELITE CLASS",     desc: "Fast, accurate, lethal in execution. Zero hesitation." },
+  { level: 25, name: "PHANTOM",         tier: "TIER IV — ELITE CLASS",     desc: "You move without noise and strike without warning." },
+  { level: 26, name: "SHADOW OPS",      tier: "TIER IV — ELITE CLASS",     desc: "Operating in the grey zones others fear to enter." },
+  { level: 27, name: "MAJOR",           tier: "TIER IV — ELITE CLASS",     desc: "Your influence spans beyond your immediate circle." },
+  { level: 28, name: "IRON WOLF",       tier: "TIER IV — ELITE CLASS",     desc: "Pack instinct combined with iron will. Unstoppable." },
+  { level: 29, name: "BLADE",           tier: "TIER IV — ELITE CLASS",     desc: "Sharpened through hardship. A single cut decides everything." },
+  { level: 30, name: "WARLORD",         tier: "TIER IV — ELITE CLASS",     desc: "You bend the battlefield to your vision." },
+  { level: 31, name: "COLONEL",         tier: "TIER IV — ELITE CLASS",     desc: "Commanding forces. Your decisions echo across units." },
+  { level: 32, name: "IRONCLAD",        tier: "TIER IV — ELITE CLASS",     desc: "No weakness. No gaps in your armor or your resolve." },
+  { level: 33, name: "STORM BREAKER",   tier: "TIER IV — ELITE CLASS",     desc: "You shatter what others build walls around." },
+  { level: 34, name: "DREADNOUGHT",     tier: "TIER IV — ELITE CLASS",     desc: "Massive force of will. Nothing moves you." },
+  { level: 35, name: "SPECTRE",         tier: "TIER IV — ELITE CLASS",     desc: "You exist beyond categories. A force without form." },
+  // 36-50 (Commander)
+  { level: 36, name: "COMMANDER",       tier: "TIER V — COMMANDER CLASS",  desc: "The rank of true authority. Your strategy shapes outcomes." },
+  { level: 37, name: "AEGIS",           tier: "TIER V — COMMANDER CLASS",  desc: "Your strength shields those around you." },
+  { level: 38, name: "TITAN",           tier: "TIER V — COMMANDER CLASS",  desc: "Immovable. Unbreakable. You are the foundation." },
+  { level: 39, name: "OVERLORD",        tier: "TIER V — COMMANDER CLASS",  desc: "Supreme command over self and environment." },
+  { level: 40, name: "BERSERKER",       tier: "TIER V — COMMANDER CLASS",  desc: "Unstoppable fury with precise, controlled purpose." },
+  { level: 41, name: "IRON FIST",       tier: "TIER V — COMMANDER CLASS",  desc: "Your grip on discipline is absolute." },
+  { level: 42, name: "GENERAL",         tier: "TIER V — COMMANDER CLASS",  desc: "Grand strategy. Your vision extends years ahead." },
+  { level: 43, name: "WAR CHIEF",       tier: "TIER V — COMMANDER CLASS",  desc: "Tribes rally under your banner. You lead movements." },
+  { level: 44, name: "CRUSADER",        tier: "TIER V — COMMANDER CLASS",  desc: "Driven by mission. No comfort overrides your cause." },
+  { level: 45, name: "PALADIN",         tier: "TIER V — COMMANDER CLASS",  desc: "Warrior and guardian. Strength guided by principle." },
+  { level: 46, name: "FORTRESS",        tier: "TIER V — COMMANDER CLASS",  desc: "You cannot be taken. Your position is unassailable." },
+  { level: 47, name: "APEX PREDATOR",   tier: "TIER V — COMMANDER CLASS",  desc: "At the top of your food chain. Every instinct refined." },
+  { level: 48, name: "JUGGERNAUT",      tier: "TIER V — COMMANDER CLASS",  desc: "Momentum built over time is now unstoppable." },
+  { level: 49, name: "CYCLONE",         tier: "TIER V — COMMANDER CLASS",  desc: "Energy that reshapes everything in your path." },
+  { level: 50, name: "MARSHAL",         tier: "TIER V — COMMANDER CLASS",  desc: "HALFWAY. Half the journey complete. The peak awaits." },
+  // 51-65 (Legend)
+  { level: 51, name: "SOVEREIGN",       tier: "TIER VI — LEGEND CLASS",    desc: "You rule your domain without challenge." },
+  { level: 52, name: "ARCHANGEL",       tier: "TIER VI — LEGEND CLASS",    desc: "Elevated beyond mortal limits. A higher calling." },
+  { level: 53, name: "DESTROYER",       tier: "TIER VI — LEGEND CLASS",    desc: "Old versions of yourself fall daily. Evolution." },
+  { level: 54, name: "STORM LORD",      tier: "TIER VI — LEGEND CLASS",    desc: "You command chaos and bring it to order." },
+  { level: 55, name: "BASTION",         tier: "TIER VI — LEGEND CLASS",    desc: "An enduring stronghold. You do not yield." },
+  { level: 56, name: "OBLITERATOR",     tier: "TIER VI — LEGEND CLASS",    desc: "Obstacles don't slow you. They disappear." },
+  { level: 57, name: "EMPEROR",         tier: "TIER VI — LEGEND CLASS",    desc: "Empire of self built day by day, brick by brick." },
+  { level: 58, name: "COLOSSUS",        tier: "TIER VI — LEGEND CLASS",    desc: "You stand above the ordinary. A colossus among men." },
+  { level: 59, name: "NIGHTHAWK",       tier: "TIER VI — LEGEND CLASS",    desc: "Precision in the dark. You see what others miss." },
+  { level: 60, name: "OMEGA SOLDIER",   tier: "TIER VI — LEGEND CLASS",    desc: "The final form of the soldier. Perfected craft." },
+  { level: 61, name: "WARDEN",          tier: "TIER VI — LEGEND CLASS",    desc: "Keeper of your principles. Nothing passes unguarded." },
+  { level: 62, name: "HARBINGER",       tier: "TIER VI — LEGEND CLASS",    desc: "Your arrival signals change. You are the warning." },
+  { level: 63, name: "HIGHLANDER",      tier: "TIER VI — LEGEND CLASS",    desc: "There can be only one at the summit. You're climbing." },
+  { level: 64, name: "LEGEND",          tier: "TIER VI — LEGEND CLASS",    desc: "Stories will be told of your discipline." },
+  { level: 65, name: "DEMIGOD",         tier: "TIER VI — LEGEND CLASS",    desc: "Beyond human limitation. A different species of will." },
+  // 66-80 (Mythic)
+  { level: 66, name: "ARCHON",          tier: "TIER VII — MYTHIC CLASS",   desc: "Ruler of your reality. Architect of your destiny." },
+  { level: 67, name: "IMMORTAL",        tier: "TIER VII — MYTHIC CLASS",   desc: "Your commitment cannot be killed by circumstance." },
+  { level: 68, name: "SERAPH",          tier: "TIER VII — MYTHIC CLASS",   desc: "Burning with purpose. Nothing extinguishes your drive." },
+  { level: 69, name: "VOIDWALKER",      tier: "TIER VII — MYTHIC CLASS",   desc: "You operate where others cannot. Extremes are home." },
+  { level: 70, name: "ZENITH",          tier: "TIER VII — MYTHIC CLASS",   desc: "The highest point on the arc. Still climbing higher." },
+  { level: 71, name: "DRAGOON",         tier: "TIER VII — MYTHIC CLASS",   desc: "Swift as fire, precise as steel. Unstoppable cavalry." },
+  { level: 72, name: "BEHEMOTH",        tier: "TIER VII — MYTHIC CLASS",   desc: "Your presence alone shifts the weight of the room." },
+  { level: 73, name: "WATCHER",         tier: "TIER VII — MYTHIC CLASS",   desc: "Nothing escapes your awareness. You see the full game." },
+  { level: 74, name: "MYTHBREAKER",     tier: "TIER VII — MYTHIC CLASS",   desc: "You shatter what was thought impossible." },
+  { level: 75, name: "ASCENDANT",       tier: "TIER VII — MYTHIC CLASS",   desc: "The ascent is visible to all now. You rise above." },
+  { level: 76, name: "REAPER",          tier: "TIER VII — MYTHIC CLASS",   desc: "You harvest what others planted in procrastination." },
+  { level: 77, name: "ETERNAL",         tier: "TIER VII — MYTHIC CLASS",   desc: "Your habits outlive motivation. Eternal by design." },
+  { level: 78, name: "CELESTIAL",       tier: "TIER VII — MYTHIC CLASS",   desc: "Operating on a frequency few can perceive." },
+  { level: 79, name: "WARLORD PRIME",   tier: "TIER VII — MYTHIC CLASS",   desc: "Supreme evolution of command. Mastery crystallized." },
+  { level: 80, name: "INVICTUS",        tier: "TIER VII — MYTHIC CLASS",   desc: "Unconquered. The name says everything." },
+  // 81-95 (Transcendent)
+  { level: 81, name: "TRANSCENDENT",    tier: "TIER VIII — TRANSCENDENT",  desc: "You have surpassed the version of you that started this." },
+  { level: 82, name: "VOID GENERAL",    tier: "TIER VIII — TRANSCENDENT",  desc: "Leading operations in dimensions others can't access." },
+  { level: 83, name: "OMEGA",           tier: "TIER VIII — TRANSCENDENT",  desc: "The final Greek letter. You are the end state." },
+  { level: 84, name: "INFINITE",        tier: "TIER VIII — TRANSCENDENT",  desc: "No ceiling. No limit. Pure potential in motion." },
+  { level: 85, name: "CHAOS LORD",      tier: "TIER VIII — TRANSCENDENT",  desc: "You have mastered chaos so completely, you become it." },
+  { level: 86, name: "GODWALKER",       tier: "TIER VIII — TRANSCENDENT",  desc: "You walk among mortals but operate differently." },
+  { level: 87, name: "SINGULARITY",     tier: "TIER VIII — TRANSCENDENT",  desc: "A point of infinite density. All paths lead here." },
+  { level: 88, name: "PHANTOM LORD",    tier: "TIER VIII — TRANSCENDENT",  desc: "Commanding what cannot be seen. Reality bends." },
+  { level: 89, name: "RECKONING",       tier: "TIER VIII — TRANSCENDENT",  desc: "Your arrival is the answer to every question." },
+  { level: 90, name: "DARK STAR",       tier: "TIER VIII — TRANSCENDENT",  desc: "Immense gravity. Everything orbits your discipline." },
+  { level: 91, name: "PRIMUS",          tier: "TIER VIII — TRANSCENDENT",  desc: "First above all. The original warrior made perfect." },
+  { level: 92, name: "WAR GOD",         tier: "TIER VIII — TRANSCENDENT",  desc: "Divinized through discipline. Every day was a prayer." },
+  { level: 93, name: "ANNIHILATOR",     tier: "TIER VIII — TRANSCENDENT",  desc: "You annihilated your old self completely." },
+  { level: 94, name: "GENESIS",         tier: "TIER VIII — TRANSCENDENT",  desc: "From nothing to everything. You are the beginning." },
+  { level: 95, name: "ABSOLUTE",        tier: "TIER VIII — TRANSCENDENT",  desc: "No qualifier needed. You are the standard." },
+  // 96-100 (Apex / Legendary)
+  { level: 96, name: "SUPREME",         tier: "TIER IX — APEX",            desc: "Above the highest. The summit bows to you." },
+  { level: 97, name: "APEX",            tier: "TIER IX — APEX",            desc: "The apex. Not a destination — a state of being." },
+  { level: 98, name: "UNDYING",         tier: "TIER IX — APEX",            desc: "Failure could not kill you. Nothing can." },
+  { level: 99, name: "ETERNAL FLAME",   tier: "TIER IX — APEX",            desc: "You burn without fuel. Self-sustaining fire." },
+  { level: 100,name: "THE ONE",         tier: "TIER IX — APEX",            desc: "THE PINNACLE. 100 days of unbroken discipline. You are THE ONE." },
+];
+
+// ============================================================
+// STATE
+// ============================================================
+const DEFAULT_STATE = {
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: '2026-12-31',
+  currentLevel: 11,
+  checkinHistory: [], // [{date:'YYYY-MM-DD', passed: bool}]
+  lastCheckinDate: null,
+  totalPassed: 0,
+  totalFailed: 0,
+  currentStreak: 0,
+  bestStreak: 0,
+};
+
+function loadState() {
+  try {
+    const s = localStorage.getItem('ascend_state');
+    if (s) return { ...DEFAULT_STATE, ...JSON.parse(s) };
+  } catch(e) {}
+  return { ...DEFAULT_STATE };
+}
+
+function saveState(st) {
+  localStorage.setItem('ascend_state', JSON.stringify(st));
+}
+
+let STATE = loadState();
+
+// ============================================================
+// HELPERS
+// ============================================================
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function parseDate(str) {
+  const [y,m,d] = str.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+
+function formatDate(str) {
+  const d = parseDate(str);
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }).toUpperCase();
+}
+
+function daysBetween(a, b) {
+  return Math.round((parseDate(b) - parseDate(a)) / 86400000);
+}
+
+function getRank(level) {
+  const clamped = Math.max(1, Math.min(100, level));
+  return RANKS[clamped - 1] || RANKS[RANKS.length - 1];
+}
+
+// ============================================================
+// CLOCK + COUNTDOWN
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('live-clock').textContent = `${h}:${m}:${s}`;
+}
+
+function updateCountdown() {
+  const end = parseDate(STATE.endDate);
+  end.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const diff = end - now;
+
+  if (diff <= 0) {
+    document.getElementById('cd-days').textContent = '000';
+    document.getElementById('cd-hrs').textContent = '00';
+    document.getElementById('cd-mins').textContent = '00';
+    document.getElementById('cd-secs').textContent = '00';
+    return;
+  }
+
+  const days = Math.floor(diff / 86400000);
+  const hrs = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  const secs = Math.floor((diff % 60000) / 1000);
+
+  document.getElementById('cd-days').textContent = String(days).padStart(3,'0');
+  document.getElementById('cd-hrs').textContent = String(hrs).padStart(2,'0');
+  document.getElementById('cd-mins').textContent = String(mins).padStart(2,'0');
+  document.getElementById('cd-secs').textContent = String(secs).padStart(2,'0');
+
+  if (days < 7) document.getElementById('cd-days-unit').classList.add('critical');
+  else document.getElementById('cd-days-unit').classList.remove('critical');
+}
+
+// ============================================================
+// CHECKIN TIMER
+// ============================================================
+function updateCheckinTimer() {
+  const last = STATE.lastCheckinDate;
+  const today = todayStr();
+
+  if (last === today) {
+    // Already checked in today
+    document.getElementById('btn-pass').disabled = true;
+    document.getElementById('btn-fail').disabled = true;
+    document.getElementById('checkin-title').textContent = 'MISSION LOGGED FOR TODAY';
+    document.getElementById('checkin-sub').textContent = 'COME BACK TOMORROW. STAY DISCIPLINED.';
+
+    // Show next check-in time
+    const nextMidnight = new Date();
+    nextMidnight.setHours(24,0,0,0);
+    const diff = nextMidnight - new Date();
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    const el = document.getElementById('timer-until');
+    el.style.display = 'block';
+    el.innerHTML = `NEXT CHECK-IN OPENS IN: <span>${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
+  } else {
+    document.getElementById('btn-pass').disabled = false;
+    document.getElementById('btn-fail').disabled = false;
+    document.getElementById('checkin-title').textContent = 'DAILY MISSION CHECK-IN';
+    document.getElementById('checkin-sub').textContent = 'TAP PASS IF YOU COMPLETED YOUR MISSION TODAY. FAILURE COSTS A RANK.';
+    document.getElementById('timer-until').style.display = 'none';
+  }
+}
+
+// ============================================================
+// CHECKIN ACTION
+// ============================================================
+function doCheckin(passed) {
+  const today = todayStr();
+
+  if (STATE.lastCheckinDate === today) {
+    showToast('ALREADY CHECKED IN TODAY', 'gold');
+    return;
+  }
+
+  const oldLevel = STATE.currentLevel;
+  STATE.lastCheckinDate = today;
+  STATE.checkinHistory.push({ date: today, passed });
+
+  if (passed) {
+    STATE.totalPassed++;
+    STATE.currentStreak++;
+    if (STATE.currentStreak > STATE.bestStreak) STATE.bestStreak = STATE.currentStreak;
+    STATE.currentLevel = Math.min(100, STATE.currentLevel + 1);
+  } else {
+    STATE.totalFailed++;
+    STATE.currentStreak = 0;
+    STATE.currentLevel = Math.max(1, STATE.currentLevel - 1);
+  }
+
+  saveState(STATE);
+  updateUI();
+  updateCheckinTimer();
+
+  const newLevel = STATE.currentLevel;
+  if (passed && newLevel > oldLevel) {
+    showModal(
+      '🎖️',
+      'RANK UP',
+      `You advanced from Level ${oldLevel} (${getRank(oldLevel).name}) to Level ${newLevel} (${getRank(newLevel).name}). Keep going.`,
+      'gold'
+    );
+  } else if (!passed && newLevel < oldLevel) {
+    showModal(
+      '💀',
+      'RANK DOWN',
+      `Failure has a cost. You dropped from Level ${oldLevel} (${getRank(oldLevel).name}) to Level ${newLevel} (${getRank(newLevel).name}). Redeem tomorrow.`,
+      'red'
+    );
+  }
+}
+
+// ============================================================
+// UI RENDER
+// ============================================================
+function updateUI() {
+  const rank = getRank(STATE.currentLevel);
+
+  // Badge & rank card
+  document.getElementById('badge-level').textContent = STATE.currentLevel;
+  document.getElementById('rank-tier').textContent = rank.tier;
+
+  // Determine tier number for font styling
+  let tierNum = 1;
+  if (STATE.currentLevel <= 5)  tierNum = 1;
+  else if (STATE.currentLevel <= 10) tierNum = 2;
+  else if (STATE.currentLevel <= 20) tierNum = 3;
+  else if (STATE.currentLevel <= 35) tierNum = 4;
+  else if (STATE.currentLevel <= 50) tierNum = 5;
+  else if (STATE.currentLevel <= 65) tierNum = 6;
+  else if (STATE.currentLevel <= 80) tierNum = 7;
+  else if (STATE.currentLevel <= 95) tierNum = 8;
+  else tierNum = 9;
+
+  const rankNameEl = document.getElementById('rank-name');
+  rankNameEl.className = `rank-name tier-${tierNum}`;
+  rankNameEl.textContent = rank.name;
+  document.getElementById('rank-desc').textContent = rank.desc;
+
+  // XP bar
+  const nextLevel = Math.min(100, STATE.currentLevel + 1);
+  const progress = STATE.currentLevel >= 100 ? 100 : (STATE.totalPassed % 1 === 0 ? 0 : 50);
+  document.getElementById('xp-bar').style.width = '0%';
+  document.getElementById('xp-label-left').textContent = `LVL ${STATE.currentLevel}`;
+  document.getElementById('xp-label-right').textContent =
+    STATE.currentLevel >= 100 ? 'MAX RANK ACHIEVED' : `LVL ${nextLevel} — PASS TOMORROW`;
+
+  // Stats
+  document.getElementById('stat-level').textContent = STATE.currentLevel;
+  document.getElementById('stat-rank-short').textContent = rank.name;
+  document.getElementById('stat-pass').textContent = STATE.totalPassed;
+  document.getElementById('stat-fail').textContent = STATE.totalFailed;
+  document.getElementById('stat-streak').textContent = STATE.currentStreak;
+  document.getElementById('stat-beststreak').textContent = STATE.bestStreak;
+
+  const total = STATE.totalPassed + STATE.totalFailed;
+  const wr = total > 0 ? Math.round((STATE.totalPassed / total) * 100) : 0;
+  document.getElementById('stat-winrate').textContent = total > 0 ? `${wr}%` : '—';
+
+  // Days remaining
+  const today = todayStr();
+  const daysRem = Math.max(0, daysBetween(today, STATE.endDate));
+  document.getElementById('stat-daysrem').textContent = daysRem;
+
+  // Max possible rank
+  const maxReachable = Math.min(100, STATE.currentLevel + daysRem);
+  document.getElementById('stat-maxrank').textContent = maxReachable;
+  document.getElementById('stat-maxrank-name').textContent = getRank(maxReachable).name;
+
+  // Countdown end date display
+  document.getElementById('mission-end-date').textContent = formatDate(STATE.endDate);
+
+  // Settings input
+  document.getElementById('end-date-input').value = STATE.endDate;
+
+  // Briefing
+  document.getElementById('brief-start').textContent = formatDate(STATE.startDate);
+  document.getElementById('brief-end').textContent = formatDate(STATE.endDate);
+  const missionDays = daysBetween(STATE.startDate, STATE.endDate);
+  document.getElementById('brief-total').textContent = `${missionDays} DAYS`;
+  const elapsed = daysBetween(STATE.startDate, today);
+  document.getElementById('brief-elapsed').textContent = `${Math.max(0, elapsed)} DAYS`;
+  document.getElementById('brief-lastcheck').textContent = STATE.lastCheckinDate ? formatDate(STATE.lastCheckinDate) : 'NEVER';
+  const nextMidnight = new Date();
+  nextMidnight.setHours(24,0,0,0);
+  document.getElementById('brief-nextcheck').textContent =
+    STATE.lastCheckinDate === today
+      ? nextMidnight.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+      : 'NOW';
+  document.getElementById('brief-status').textContent = daysRem > 0 ? 'ACTIVE' : 'COMPLETE';
+  const projectedFinal = Math.min(100, STATE.currentLevel + (total > 0 ? Math.round(wr/100 * daysRem) : daysRem));
+  document.getElementById('brief-projected').textContent = `LVL ${projectedFinal} — ${getRank(projectedFinal).name}`;
+
+  // Rank path
+  renderRankPath(daysRem);
+
+  // Streak bar
+  renderStreakBar();
+}
+
+function renderRankPath(daysRem) {
+  const el = document.getElementById('rank-path');
+  const maxShow = Math.min(100, STATE.currentLevel + daysRem + 5);
+  const startShow = Math.max(1, STATE.currentLevel - 9);
+  const endShow = Math.min(100, startShow + 49);
+
+  let html = '';
+  for (let lvl = startShow; lvl <= endShow; lvl++) {
+    const rank = RANKS[lvl - 1];
+    let cls = 'future';
+    if (lvl < STATE.currentLevel) cls = 'passed';
+    else if (lvl === STATE.currentLevel) cls = 'current';
+    else if (lvl > maxShow) cls = 'locked';
+
+    html += `<div class="rank-node ${cls}" title="LVL ${lvl}: ${rank.name}">
+      ${cls === 'passed' ? '<span class="node-check">✓</span>' : ''}
+      <div class="node-level">${lvl}</div>
+      <div class="node-name">${rank.name.split(' ')[0]}</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderStreakBar() {
+  const el = document.getElementById('streak-bar');
+  const today = todayStr();
+  const history = STATE.checkinHistory.slice(-30);
+  let html = '';
+  for (let i = 0; i < 30; i++) {
+    const entry = history[i];
+    if (!entry) { html += `<div class="streak-pip"></div>`; continue; }
+    if (entry.date === today) { html += `<div class="streak-pip current" title="TODAY"></div>`; continue; }
+    html += `<div class="streak-pip ${entry.passed ? 'pass' : 'fail'}" title="${entry.date}: ${entry.passed ? 'PASS' : 'FAIL'}"></div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ============================================================
+// MODAL & TOAST
+// ============================================================
+function showModal(icon, title, text, type = 'gold') {
+  document.getElementById('modal-icon').textContent = icon;
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-title').className = `modal-title ${type}`;
+  document.getElementById('modal-text').textContent = text;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+
+let toastTimer;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function setEndDate() {
+  const val = document.getElementById('end-date-input').value;
+  if (!val) return;
+  const today = todayStr();
+  if (val <= today) { showToast('END DATE MUST BE IN THE FUTURE', 'danger'); return; }
+  STATE.endDate = val;
+  saveState(STATE);
+  updateUI();
+  updateCountdown();
+  showToast('MISSION END DATE UPDATED', 'gold');
+}
+
+function confirmReset() {
+  if (confirm('RESET ALL DATA? THIS CANNOT BE UNDONE.')) {
+    localStorage.removeItem('ascend_state');
+    STATE = { ...DEFAULT_STATE, startDate: todayStr() };
+    saveState(STATE);
+    updateUI();
+    updateCheckinTimer();
+    showToast('ALL DATA RESET', 'danger');
+  }
+}
+
+// ============================================================
+// MIDNIGHT AUTO-PROMPT
+// ============================================================
+function checkMidnightReset() {
+  const today = todayStr();
+  // If last checkin was NOT today and it was yesterday = missed
+  if (STATE.lastCheckinDate && STATE.lastCheckinDate !== today) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split('T')[0];
+    if (STATE.lastCheckinDate === yStr) {
+      // They missed yesterday — auto-process as fail
+      // Actually don't auto-fail, let them decide when they open. Just update timer UI.
+    }
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  checkMidnightReset();
+  updateUI();
+  updateClock();
+  updateCountdown();
+  updateCheckinTimer();
+
+  setInterval(updateClock, 1000);
+  setInterval(updateCountdown, 1000);
+  setInterval(updateCheckinTimer, 1000);
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
